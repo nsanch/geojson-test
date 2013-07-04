@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Render Voting Districts</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="http://leafletjs.com/dist/leaflet.css" />
+  <!--[if lte IE 8]><link rel="stylesheet" href="../dist/leaflet.ie.css" /><![endif]-->
+</head>
+<body>
+  <div id="map" style="width: 900px; height: 600px"></div>
+  <script src="voting-districts.js" type="text/javascript"></script>
+  <script src="http://leafletjs.com/dist/leaflet.js"></script>
+  <script>
+    var map = L.map('map').setView([40.005, -75.67], 10);
+    //40.3, -76.0
+    //39.7, -75.0
+    L.tileLayer('http://{s}.tile.cloudmade.com/{key}/22677/256/{z}/{x}/{y}.png', {
+      attribution: 'Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2012 CloudMade',
+      key: 'BC9A493B41014CAABB98F0471D759707'
+    }).addTo(map);
+
+    var styles = {
+      // The GEOID10 value for Atglen.
+      "4202910": {fillColor: "red"},
+    };
+
+    L.geoJson(fullGeoJson, {
+      style: function(feature) {
+        var defaultStyles = {
+          weight: 3,
+          opacity: 0.3,
+          fillOpacity: 0.5,
+        };
+        var perDocStyle = feature.properties && feature.properties['GEOID10'] && styles[feature.properties['GEOID10']];
+        if (perDocStyle) {
+          for (k in defaultStyles) {
+            perDocStyle[k] = defaultStyles[k];
+          }
+          return perDocStyle;
+        } else {
+          return defaultStyles;
+        }
+      },
+      onEachFeature: function(feature, layer) {
+        var popup = [];
+        for (prop in feature.properties) {
+          if (prop != 'style') {
+            popup.push(prop + ': ' + feature.properties[prop]);
+          }
+        }
+        layer.bindPopup(popup.join('<br />'))
+      }
+    }).addTo(map);
+  </script>
+</body>
+</html>
