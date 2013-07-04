@@ -26,7 +26,7 @@
 
     L.geoJson(fullGeoJson, {
       style: function (feature) {
-        return feature.properties && feature.properties.style;
+        return feature.properties && feature.properties['GEOID10'] && styles[feature.properties['GEOID10']];
       }
     }).addTo(map);
   </script>
