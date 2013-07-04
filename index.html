@@ -74,7 +74,7 @@
         var value = feature.properties['results_' + rule['field']];
         if (value >= rule['min'] && value < rule['max']) {
           rule['matches'] += 1;
-          console.log('match! ' + JSON.stringify(feature.properties) + ',' + JSON.stringify(rule));
+          console.log('match! ' + value + ',' + JSON.stringify(rule));
           if (ret) {
             if (!multMatches) {
               multMatches = true;
@@ -82,7 +82,7 @@
                 ' with value ' + value + ' matched ' + JSON.stringify(ret) + ' and ' + JSON.stringify(rule) +
                 '. when that happens, it shows the color from the last rule that matches.');
             }
-            console.log('multiple rules matched ' + JSON.stringify(feature.properties) + '. saw ' + JSON.stringify(ret) + ' earlier.');
+            console.log('multiple rules matched ' + value + '. saw ' + JSON.stringify(ret) + ' earlier.');
           }
           ret = rule;
         }
