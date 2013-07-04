@@ -6,14 +6,77 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="http://leafletjs.com/dist/leaflet.css" />
   <!--[if lte IE 8]><link rel="stylesheet" href="../dist/leaflet.ie.css" /><![endif]-->
+  <style>
+    .removerule {
+      color: blue;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
   <div id="map" style="width: 900px; height: 600px"></div>
-  <script src="voting-districts.js" type="text/javascript"></script>
-  <!-- <script src="voting-district-styles.js" type="text/javascript"></script> -->
-  <script src="https://rawgithub.com/nsanch/geojson-test/master/voting-district-styles.js" type="text/javascript"></script>
+
+  <div>
+    <span>Add new rule:</span>
+    If field <select id="field">
+      <option value="registered_total">registered_total</option>
+      <option value="registered_r">registered_r</option>
+      <option value="registered_d">registered_d</option>
+      <option value="ballots_cast_total">ballots_cast_total</option>
+      <option value="ballots_cast_r">ballots_cast_r</option>
+      <option value="ballots_cast_d">ballots_cast_d</option>
+      <option value="r_carmody">r_carmody</option>
+      <option value="r_verwey">r_verwey</option>
+      <option value="r_sommer">r_sommer</option>
+      <option value="r_julia">r_julia</option>
+      <option value="d_sommer">d_sommer</option>
+      <option value="d_verwey">d_verwey</option>
+      <option value="d_carmody">d_carmody</option>
+      <option value="d_julia">d_julia</option>
+    </select>
+    is greater than or equal to: <input type="text" id="min"></input>
+    and less than <input type="text" id="max"></input>
+    then color it: <select id="color">
+      <option value="white">White</option>
+      <option value="silver">Silver</option>
+      <option value="gray">Gray</option>
+      <option value="black">Black</option>
+      <option value="red">Red</option>
+      <option value="maroon">Maroon</option>
+      <option value="yellow">Yellow</option>
+      <option value="olive">Olive</option>
+      <option value="lime">Lime</option>
+      <option value="green">Green</option>
+      <option value="aqua">Aqua</option>
+      <option value="teal">Teal</option>
+      <option value="blue">Blue</option>
+      <option value="navy">Navy</option>
+      <option value="fuchsia">Fuchsia</option>
+      <option value="purple">Purple</option>
+    </option>
+    <input id='rulesubmit' type="submit" value="add it"></input>
+  </div>
+
+  <div id="rules">
+  </div>
+
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
+  <script src="voting-districts-with-precincts-and-results.js" type="text/javascript"></script>
   <script src="http://leafletjs.com/dist/leaflet.js"></script>
   <script>
+    function findRule(rules, feature) {
+      for (var i = 0; i < rules.length; i++) {
+        var rule = rules[i];
+        var value = feature.properties['results_' + rule['field']];
+        if (value >= rule['min'] && value < rule['max']) {
+      //    console.log('match! ' + value + ',' + JSON.stringify(rule));
+          return rule;
+        }
+      }
+      return undefined;
+    };
+
     var map = L.map('map').setView([40.005, -75.67], 10);
     //40.3, -76.0
     //39.7, -75.0
@@ -22,33 +85,114 @@
       key: 'BC9A493B41014CAABB98F0471D759707'
     }).addTo(map);
 
-    L.geoJson(fullGeoJson, {
-      style: function(feature) {
-        var defaultStyles = {
-          weight: 3,
-          opacity: 0.3,
-          fillOpacity: 0.5,
-        };
-        var perDocStyle = feature.properties && feature.properties['GEOID10'] && styles[feature.properties['GEOID10']];
-        if (perDocStyle) {
-          for (k in defaultStyles) {
-            perDocStyle[k] = defaultStyles[k];
-          }
-          return perDocStyle;
-        } else {
-          return defaultStyles;
-        }
-      },
-      onEachFeature: function(feature, layer) {
-        var popup = [];
-        for (prop in feature.properties) {
-          if (prop != 'style') {
-            popup.push(prop + ': ' + feature.properties[prop]);
-          }
-        }
-        layer.bindPopup(popup.join('<br />'))
+    var layers = undefined;
+
+    function setupMap(rules) {
+      if (layers) {
+        layers.clearLayers();
       }
-    }).addTo(map);
+      layers = L.geoJson(fullGeoJson, {
+        style: function(feature) {
+          var defaultStyles = {
+            weight: 3,
+            opacity: 0.3,
+            fillOpacity: 0.5,
+          };
+          var rule = findRule(rules, feature);
+          if (rule) {
+            return jQuery.extend(defaultStyles, {fillColor: rule['color']});
+          } else {
+            return defaultStyles;
+          }
+        },
+        onEachFeature: function(feature, layer) {
+          var popup = [];
+          for (prop in feature.properties) {
+            if (prop.indexOf('results_') != -1 || prop == 'GEOID10') {
+              popup.push(prop + ': ' + feature.properties[prop]);
+            }
+          }
+          popup.sort();
+          layer.bindPopup(popup.join('<br />'))
+        }
+      });
+      layers.addTo(map);
+    };
+
+    function parseHash() {
+      var ret = [];
+      if (document.location.hash) {
+        var hash = document.location.hash;
+        var split = hash.split('&');
+        for (var i = 0; i < split.length; i++) {
+          var ruleKV = split[i];
+          var ruleV = ruleKV.split('=')[1];
+          var ruleEls = ruleV.split(',');
+          ret.push({
+            field: ruleEls[0],
+            min: parseInt(ruleEls[1]),
+            max: parseInt(ruleEls[2]),
+            color: ruleEls[3]
+          });
+        }
+      }
+      return ret;
+    }
+
+    function updateHash(rules) {
+      var hash = [];
+      for (var i = 0; i < rules.length; i++) {
+        var rule = allRules[i];
+        hash.push('rule=' + rule['field'] + ',' + rule['min'] + ',' + rule['max'] + ',' + rule['color']);
+      }
+      document.location.hash = hash.join('&');
+    };
+
+    function escapeIt(text) {
+      return $('<div/>').text(text).html();
+    }
+
+    function writeRulesDiv(rules) {
+      var html = [];
+      for (var i = 0; i < rules.length; i++) {
+        var rule = allRules[i];
+        html.push('<span>if field ' + escapeIt(rule['field']) + ' is &gt;= ' + escapeIt(rule['min']) + ' and &lt; ' +
+          escapeIt(rule['max']) + ' then we color it ' + escapeIt(rule['color']) +
+          '</span>. <a class="removerule" rule="'+i+'">Remove rule</a>');
+      }
+      $('#rules').html(html.join('<br/>'));
+
+      $('.removerule').click(function(evt) {
+        var rule = parseInt($(evt.target).attr('rule'));
+        allRules.splice(rule, 1);
+        redraw();
+      });
+    };
+
+    $('#rulesubmit').click(function() {
+      var rule = {
+        field: $('#field').val(),
+        min: parseInt($('#min').val()),
+        max: parseInt($('#max').val()),
+        color: $('#color').val(),
+      };
+      $('#field').val('');
+      $('#min').val('');
+      $('#max').val('');
+      $('#color').val('');
+      allRules.push(rule);
+      redraw();
+      window.alert('okay, added rule');
+    });
+
+    function redraw() {
+      updateHash(allRules);
+      setupMap(allRules);
+      writeRulesDiv(allRules);
+    };
+
+    var allRules = parseHash();
+    redraw();
   </script>
 </body>
 </html>
